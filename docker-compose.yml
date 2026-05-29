@@ -1,0 +1,68 @@
+
+services:
+  proxy:
+    build: ./proxy
+    container_name: socks_proxy
+    ports:
+      - "3389:3389"
+    volumes:
+      - ./data/logs:/var/log/3proxy
+      - ./data/config:/etc/3proxy
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=proxydb
+      - DB_USER=proxyuser
+      - DB_PASSWORD=changeme123
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - proxy_network
+  backend:
+    build: ./backend
+    container_name: proxy_backend
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=proxydb
+      - DB_USER=proxyuser
+      - DB_PASSWORD=changeme123
+      - SECRET_KEY=change-this-secret-key-to-something-random
+    depends_on:
+      - postgres
+      - proxy
+    volumes:
+      - ./data/logs:/var/log/3proxy
+      - ./data/config:/etc/3proxy
+    restart: unless-stopped
+    networks:
+      - proxy_network
+  frontend:
+    build: ./frontend
+    container_name: proxy_frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - proxy_network
+  postgres:
+    image: postgres:15-alpine
+    container_name: proxy_postgres
+    environment:
+      - POSTGRES_DB=proxydb
+      - POSTGRES_USER=proxyuser
+      - POSTGRES_PASSWORD=changeme123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - proxy_network
+volumes:
+  postgres_data:
+networks:
+  proxy_network:
+    driver: bridge

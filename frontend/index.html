@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOCKS5 Proxy Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="login-page" class="login-container">
+        <div class="login-box">
+            <h1>🔐 SOCKS5 Proxy Manager</h1>
+            <p class="login-subtitle">Please login to continue</p>
+
+            <form id="login-form" onsubmit="login(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-username" required placeholder="Enter username" autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" required placeholder="Enter password" autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Login</button>
+
+                <div id="login-error" class="error-message" style="display: none; margin-top: 15px;"></div>
+            </form>
+
+            <p class="login-hint">Default credentials: <code>admin</code> / <code>admin123</code></p>
+        </div>
+    </div>
+
+    <!-- Main Application (hidden until logged in) -->
+    <div id="app-container" style="display: none;">
+        <div class="container">
+            <header>
+                <h1>🔐 SOCKS5 Proxy Manager</h1>
+                <div class="header-info">
+                    <span id="admin-username-display" style="margin-right: 10px;">👤 admin</span>
+                    <span id="proxy-status">● Running</span>
+                    <button id="toggle-proxy-btn" class="btn btn-danger btn-sm" onclick="toggleProxy()">⏸️ Stop Proxy</button>
+                    <span id="server-status">● Connected</span>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+                </div>
+            </header>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('users')">👥 Users</button>
+                <button class="tab-btn" onclick="showTab('stats')">📊 Statistics</button>
+                <button class="tab-btn" onclick="showTab('logs')">📝 Logs</button>
+                <button class="tab-btn" onclick="showTab('settings')">⚙️ Settings</button>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content active">
+                <div class="action-bar">
+                    <button class="btn btn-primary" onclick="showAddUserModal()">+ Add User</button>
+                    <button class="btn btn-secondary" onclick="loadUsers()">🔄 Refresh</button>
+                </div>
+
+                <div class="users-grid" id="users-list">
+                    <div class="loading">Loading users...</div>
+                </div>
+            </div>
+
+            <!-- Stats Tab -->
+            <div id="stats-tab" class="tab-content">
+                <div class="action-bar">
+                    <button class="btn btn-secondary" onclick="loadStats()">🔄 Refresh</button>
+                </div>
+
+                <h2>Today's Bandwidth Usage</h2>
+                <div class="stats-grid" id="stats-list">
+                    <div class="loading">Loading statistics...</div>
+                </div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div id="logs-tab" class="tab-content">
+                <div class="action-bar">
+                    <select id="log-user-filter" onchange="loadLogs()">
+                        <option value="">All Users</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadLogs()">🔄 Refresh</button>
+                </div>
+
+                <div class="logs-container" id="logs-list">
+                    <div class="loading">Loading logs...</div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content">
+                <h2>⚙️ Admin Settings</h2>
+
+                <div class="settings-section">
+                    <h3>🔐 Change Admin Password</h3>
+                    <form id="password-change-form" onsubmit="changePassword(event)">
+                        <div class="form-group">
+                            <label>Current Password</label>
+                            <input type="password" id="current-password" required placeholder="Enter current password">
+                        </div>
+
+                        <div class="form-group">
+                            <label>New Password</label>
+                            <input type="password" id="new-password" required placeholder="Enter new password" minlength="6">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Confirm New Password</label>
+                            <input type="password" id="confirm-password" required placeholder="Confirm new password" minlength="6">
+                        </div>
+
+                        <div id="password-change-message" style="display: none; margin-bottom: 15px;"></div>
+
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </form>
+                </div>
+
+                <div class="settings-section">
+                    <h3>ℹ️ System Information</h3>
+                    <div id="system-info-container" class="info-card">
+                        <div class="loading">Loading system info...</div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>📖 Connection Instructions</h3>
+                    <div class="info-card">
+                        <p><strong>To connect to the SOCKS5 proxy:</strong></p>
+                        <code class="code-block">
+                            Server: your-server-ip<br>
+                            Port: 3389<br>
+                            Username: your-username<br>
+                            Password: your-password<br>
+                            Protocol: SOCKS5
+                        </code>
+                        <br><br>
+                        <p><strong>Test with curl:</strong></p>
+                        <code class="code-block">
+                            curl -v -x socks5h://username:password@your-server-ip:3389 https://google.com
+                        </code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit User Modal -->
+    <div id="user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">Add New User</h2>
+
+            <form id="user-form" onsubmit="saveUser(event)">
+                <input type="hidden" id="user-id">
+
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Speed Limit (KB/s) - 0 = unlimited</label>
+                    <input type="number" id="speed-limit" min="0" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Daily Quota (MB) - 0 = unlimited</label>
+                    <input type="number" id="daily-quota" min="0" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Blocked Domains (comma-separated)</label>
+                    <input type="text" id="blocked-domains" placeholder="facebook.com, twitter.com">
+                </div>
+
+                <div class="form-group">
+                    <label>Blocked IPs (comma-separated)</label>
+                    <input type="text" id="blocked-ips" placeholder="1.2.3.4, 5.6.7.8">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save User</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
